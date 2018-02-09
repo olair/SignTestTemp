@@ -10,40 +10,40 @@ import android.os.Build;
 import android.support.annotation.Nullable;
 import android.support.annotation.RequiresApi;
 import android.util.AttributeSet;
-import android.view.MotionEvent;
 import android.view.View;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 绘制路径的View
+ * 用于展示擦除结果的View
  *
- * Created by ws on 2018/2/7.
+ * Created by ws on 2018/2/9.
  */
 
-public class TestView extends View {
+public class DisplayView extends View {
 
     Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    Path mPath = new Path();
-    private PerformClick mPerformClick;
+    private List<List<PointF>> pointsList = new ArrayList<>();
 
-    public TestView(Context context) {
+    Path mPath = new Path();
+
+    public DisplayView(Context context) {
         this(context, null);
     }
 
-    public TestView(Context context, @Nullable AttributeSet attrs) {
+    public DisplayView(Context context, @Nullable AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public TestView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+    public DisplayView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         initialization(context, attrs, defStyleAttr, 0);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    public TestView(Context context, @Nullable AttributeSet attrs, int defStyleAttr, int
+    public DisplayView(Context context, @Nullable AttributeSet attrs, int defStyleAttr, int
             defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
         initialization(context, attrs, defStyleAttr, defStyleRes);
@@ -56,36 +56,9 @@ public class TestView extends View {
         mPaint.setStyle(Paint.Style.STROKE);
     }
 
-    private List<List<PointF>> pointsList = new ArrayList<>();
 
-    private List<PointF> currentPoints;
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                currentPoints = new ArrayList<>();
-                pointsList.add(currentPoints);
-                return true;
-            case MotionEvent.ACTION_MOVE:
-                currentPoints.add(new PointF(event.getX(), event.getY()));
-                break;
-            case MotionEvent.ACTION_UP:
-                if (mPerformClick == null) {
-                    mPerformClick = new PerformClick();
-                }
-                if (!post(mPerformClick)) {
-                    performClick();
-                }
-                break;
-        }
-        invalidate();
-        return true;
-    }
-
-    @Override
-    public boolean performClick() {
-        return super.performClick();
+    public void setPointsList(List<List<PointF>> pointsList) {
+        this.pointsList.addAll(pointsList);
     }
 
     @Override
@@ -114,10 +87,5 @@ public class TestView extends View {
         }
     }
 
-    private final class PerformClick implements Runnable {
-        @Override
-        public void run() {
-            performClick();
-        }
-    }
+
 }
