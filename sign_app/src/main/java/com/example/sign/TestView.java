@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * 绘制路径的View
- *
+ * <p>
  * Created by ws on 2018/2/7.
  */
 
@@ -28,6 +28,7 @@ public class TestView extends View {
 
     Path mPath = new Path();
     private PerformClick mPerformClick;
+    private DisplayView mView;
 
     public TestView(Context context) {
         this(context, null);
@@ -56,19 +57,23 @@ public class TestView extends View {
         mPaint.setStyle(Paint.Style.STROKE);
     }
 
-    private List<List<PointF>> pointsList = new ArrayList<>();
+//    private List<List<PointF>> pointsList = new ArrayList<>();
 
-    private List<PointF> currentPoints;
+//    private List<PointF> currentPoints;
+
+    private List<PDFSignaturePath> signaturePaths = new ArrayList<>();
+
+    private PDFSignaturePath currentPath;
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                currentPoints = new ArrayList<>();
-                pointsList.add(currentPoints);
+                currentPath = new PDFSignaturePath(false);
+                signaturePaths.add(currentPath);
                 return true;
             case MotionEvent.ACTION_MOVE:
-                currentPoints.add(new PointF(event.getX(), event.getY()));
+                currentPath.add(new PointF(event.getX(), event.getY()));
                 break;
             case MotionEvent.ACTION_UP:
                 if (mPerformClick == null) {
@@ -77,6 +82,7 @@ public class TestView extends View {
                 if (!post(mPerformClick)) {
                     performClick();
                 }
+                notifyDisplayView(mView);
                 break;
         }
         invalidate();
@@ -91,8 +97,8 @@ public class TestView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        for (List<PointF> points : pointsList) {
-            invalidatePath(points, mPath);
+        for (PDFSignaturePath path : signaturePaths) {
+            invalidatePath(path.getPoints(), mPath);
             canvas.drawPath(mPath, mPaint);
         }
     }
@@ -114,10 +120,18 @@ public class TestView extends View {
         }
     }
 
+    public void setmView(DisplayView mView) {
+        this.mView = mView;
+    }
+
     private final class PerformClick implements Runnable {
         @Override
         public void run() {
             performClick();
         }
+    }
+
+    void notifyDisplayView(DisplayView view) {
+        view.setPointsList(signaturePaths);
     }
 }

@@ -57,8 +57,9 @@ public class DisplayView extends View {
     }
 
 
-    public void setPointsList(List<List<PointF>> pointsList) {
-        this.pointsList.addAll(pointsList);
+    public void setPointsList(List<PDFSignaturePath> signaturePaths) {
+        pointsList = EraseUtil.calculateList(signaturePaths, 30, 100, 100);
+        invalidate();
     }
 
     @Override

@@ -15,6 +15,8 @@ public class MainActivity extends AppCompatActivity {
 
         DisplayView displayView = findViewById(R.id.display_view);
 
+        testView.setmView(displayView);
+
     }
 
 

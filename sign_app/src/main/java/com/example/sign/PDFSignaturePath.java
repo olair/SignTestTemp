@@ -12,13 +12,13 @@ import java.util.ArrayList;
  * Created by Xiang Zhicheng on 2018/1/9.
  */
 @SuppressWarnings("all")
-public class PDFSignaturePath implements Parcelable {
+public class PDFSignaturePath {
     private final boolean mClear;
     private final ArrayList<PointF> mPoints;
 
-    public PDFSignaturePath(boolean clear, ArrayList<PointF> points) {
+    public PDFSignaturePath(boolean clear) {
         mClear = clear;
-        mPoints = points;
+        mPoints = new ArrayList<>();
     }
 
     public boolean isClear() {
@@ -29,31 +29,8 @@ public class PDFSignaturePath implements Parcelable {
         return mPoints;
     }
 
-    @Override
-    public int describeContents() {
-        return 0;
+    void add(PointF point) {
+        mPoints.add(point);
     }
 
-    @Override
-    public void writeToParcel(Parcel dest, int flags) {
-        dest.writeByte(this.mClear ? (byte) 1 : (byte) 0);
-        dest.writeTypedList(this.mPoints);
-    }
-
-    protected PDFSignaturePath(Parcel in) {
-        this.mClear = in.readByte() != 0;
-        this.mPoints = in.createTypedArrayList(PointF.CREATOR);
-    }
-
-    public static final Creator<PDFSignaturePath> CREATOR = new Creator<PDFSignaturePath>() {
-        @Override
-        public PDFSignaturePath createFromParcel(Parcel source) {
-            return new PDFSignaturePath(source);
-        }
-
-        @Override
-        public PDFSignaturePath[] newArray(int size) {
-            return new PDFSignaturePath[size];
-        }
-    };
 }
