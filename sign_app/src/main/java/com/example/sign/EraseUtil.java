@@ -82,6 +82,7 @@ public class EraseUtil {
         paint.setStrokeJoin(Paint.Join.ROUND);
         paint.setStrokeCap(Paint.Cap.ROUND);
         // 构建canvas
+//        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
         Canvas canvas = new Canvas(bitmap);
         // 创建一个Path
         Path path = new Path();
@@ -150,91 +151,89 @@ public class EraseUtil {
         Canvas canvas = new Canvas(pencilBitmap);
 
         final int count = pencil.size();
-        boolean isAppearEnd = false;// current是否已经end，需要一个新的start
+        boolean isAppearEnd = true;// current是否已经end，需要一个新的start
         for (int i = 1; i < count; i++) {
             PointF startPoint = pencil.get(i - 1);
             PointF endPoint = pencil.get(i);
             // 如果超出bitmap不进行处理
-            if (!isInBitmap(width, height, startPoint) && isInBitmap(width, height, endPoint)) {
+            if (startPoint.equals(endPoint)) {
+                continue;// 去除不必要点的计算(同时避免了计算slope时出现NaN)
+            }
+
+            // 如果超出bitmap不进行处理
+            if (!isInBitmap(width, height, startPoint) && !isInBitmap(width, height, endPoint)) {
                 continue;
             }
             // 开始寻找尾节点
             canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
             canvas.drawLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y, paint);
-            int xStart = (int) (startPoint.x);
-            int xEnd = (int) (endPoint.x);
-            float slope = (endPoint.y - startPoint.y) / (endPoint.x - startPoint.x);
-            if (xStart < xEnd && (slope < 1 && slope > -1)) {
-                xStart -= PREVENT_COORDINATE_OFFSET;
-                xStart = xStart >= 0 ? xStart : 0;
-                xEnd += PREVENT_COORDINATE_OFFSET;
-                xEnd = xEnd < width ? xEnd : width - 1;
-                while (xStart <= xEnd) {
-                    // 从pencil中获取该线段第一个点、第二个点、、、、
-                    int yReference = (int) ((xStart - startPoint.x) * slope + startPoint.y);
-                    yReference = yReference >= PREVENT_COORDINATE_OFFSET_SEARCH ? yReference :
-                            PREVENT_COORDINATE_OFFSET_SEARCH;
-                    yReference = yReference <= height - PREVENT_COORDINATE_OFFSET_SEARCH ?
-                            yReference :
-                            height - PREVENT_COORDINATE_OFFSET_SEARCH;
-                    getStartPointByX(pencilBitmap, xStart, xEnd, yReference, point);
-                    xStart++;
-                    if (point.x == -1 && point.y == -1)// 如果开始为null则停止循环
-                        break;
-                    //
-                    boolean have = haveData(targetBitmap, point);
-                    if (!have && !isAppearEnd) {// 找到尾节点
-                        // 在该线段中存在尾节点
-                        current.add(new PointF(point));
-                        current = new ArrayList<>();
-                        pencils.add(current);
-                        isAppearEnd = true;
+            float slope = (endPoint.y - startPoint.y) / (endPoint.x - startPoint.x);// 允许计算出无限大
+            if (slope < 1 && slope > -1) {// 直线更偏向于x轴
+                int xStart = (int) (startPoint.x);
+                int xEnd = (int) (endPoint.x);
+                if (xStart < xEnd) {
+                    xStart -= PREVENT_COORDINATE_OFFSET;
+                    xStart = xStart >= 0 ? xStart : 0;
+                    xEnd += PREVENT_COORDINATE_OFFSET;
+                    xEnd = xEnd < width ? xEnd : width - 1;
+                    while (xStart <= xEnd) {
+                        int yReference = (int) ((xStart - startPoint.x) * slope + startPoint.y);
+                        // 从pencil中获取该线段第一个点、第二个点、、、、
+                        getStartPointByXToRight(pencilBitmap, xStart, xEnd, yReference, point);
+                        xStart++;
+                        if (point.x == -1 && point.y == -1)// 如果开始为null则停止循环
+                            break;
+                        //
+                        boolean have = haveData(targetBitmap, point);
+                        if (!have && !isAppearEnd) {// 找到尾节点
+                            // 在该线段中存在尾节点
+                            current.add(new PointF(point));
+                            current.add(new PointF(point));
+                            current = new ArrayList<>();
+                            pencils.add(current);
+                            isAppearEnd = true;
+                        }
+                        if (isAppearEnd && have) {// 找到头结点
+                            isAppearEnd = false;
+                            current.add(new PointF(point));
+                        }
                     }
-                    if (isAppearEnd && have) {// 找到头结点
-                        isAppearEnd = false;
-                        current.add(new PointF(point));
+                    if (!isAppearEnd) {
+                        current.add(pencil.get(i));
                     }
-                }
-                if (!isAppearEnd) {
-                    current.add(pencil.get(i));
-                }
-            } else if (xStart > xEnd && (slope < 1 && slope > -1)) {
-                xStart += PREVENT_COORDINATE_OFFSET;
-                xStart = xStart < width ? xStart : width - 1;
-                xEnd -= PREVENT_COORDINATE_OFFSET;
-                xEnd = xEnd >= 0 ? xEnd : 0;
-                while (xStart >= xEnd) {
-                    // 从pencil中获取该线段第一个点、第二个点、、、、
-                    int yReference = (int) ((xStart - startPoint.x) * slope + startPoint.y);
-                    yReference = yReference >= PREVENT_COORDINATE_OFFSET_SEARCH ? yReference :
-                            PREVENT_COORDINATE_OFFSET_SEARCH;
-                    yReference = yReference <= height - PREVENT_COORDINATE_OFFSET_SEARCH ?
-                            yReference :
-                            height - PREVENT_COORDINATE_OFFSET_SEARCH;
-                    getStartPointByX(pencilBitmap, xStart, xEnd, yReference, point);
-                    xStart--;
-                    if (point.x == -1 && point.y == -1)// 如果开始为null则停止循环
-                        break;
-                    //
-                    boolean have = haveData(targetBitmap, point);
-                    if (!have && !isAppearEnd) {// 找到尾节点
-                        // 在该线段中存在尾节点
-                        current.add(new PointF(point));
-                        current = new ArrayList<>();
-                        pencils.add(current);
-                        isAppearEnd = true;
+                } else if (xStart > xEnd) {
+                    xStart += PREVENT_COORDINATE_OFFSET;
+                    xStart = xStart < width ? xStart : width - 1;
+                    xEnd -= PREVENT_COORDINATE_OFFSET;
+                    xEnd = xEnd >= 0 ? xEnd : 0;
+                    while (xStart >= xEnd) {
+                        int yReference = (int) ((xStart - startPoint.x) * slope + startPoint.y);
+                        getStartPointByXToLeft(pencilBitmap, xStart, xEnd, yReference, point);
+                        xStart--;
+                        if (point.x == -1 && point.y == -1)// 如果开始为null则停止循环
+                            break;
+                        //
+                        boolean have = haveData(targetBitmap, point);
+                        if (!have && !isAppearEnd) {// 找到尾节点
+                            // 在该线段中存在尾节点
+                            current.add(new PointF(point));
+                            current.add(new PointF(point));
+                            current = new ArrayList<>();
+                            pencils.add(current);
+                            isAppearEnd = true;
+                        }
+                        if (isAppearEnd && have) {// 找到头结点
+                            isAppearEnd = false;
+                            current.add(new PointF(point));
+                        }
                     }
-                    if (isAppearEnd && have) {// 找到头结点
-                        isAppearEnd = false;
-                        current.add(new PointF(point));
+                    if (!isAppearEnd) {
+                        current.add(pencil.get(i));
                     }
-                }
-                if (!isAppearEnd) {
-                    current.add(pencil.get(i));
                 }
             } else {
-                int yStart = (int) (pencil.get(i - 1).y);
-                int yEnd = (int) (pencil.get(i).y);
+                int yStart = (int) (startPoint.y);
+                int yEnd = (int) (endPoint.y);
                 if (yStart < yEnd) {// 从上向下
                     yStart -= PREVENT_COORDINATE_OFFSET;
                     yStart = yStart >= 0 ? yStart : 0;
@@ -242,17 +241,14 @@ public class EraseUtil {
                     yEnd = yEnd < height ? yEnd : height - 1;
                     while (yStart <= yEnd) {
                         int xReference = (int) (startPoint.x + (yStart - startPoint.y) / slope);
-                        xReference = xReference >= PREVENT_COORDINATE_OFFSET_SEARCH ? xReference :
-                                PREVENT_COORDINATE_OFFSET_SEARCH;
-                        xReference = xReference <= width - PREVENT_COORDINATE_OFFSET_SEARCH ?
-                                xReference : width - PREVENT_COORDINATE_OFFSET_SEARCH;
-                        getStartPointByY(pencilBitmap, yStart, yEnd, xReference, point);
+                        getStartPointByYToBottom(pencilBitmap, yStart, yEnd, xReference, point);
                         yStart++;
                         if (point.x == -1 && point.y == -1)// 如果开始为null则停止循环
                             break;
                         boolean have = haveData(targetBitmap, point);
                         if (!have && !isAppearEnd) {// 找到尾节点
                             // 在该线段中存在尾节点
+                            current.add(new PointF(point));
                             current.add(new PointF(point));
                             current = new ArrayList<>();
                             pencils.add(current);
@@ -273,17 +269,14 @@ public class EraseUtil {
                     yEnd = yEnd >= 0 ? yEnd : 0;
                     while (yStart >= yEnd) {
                         int xReference = (int) (startPoint.x + (yStart - startPoint.y) / slope);
-                        xReference = xReference >= PREVENT_COORDINATE_OFFSET_SEARCH ? xReference :
-                                PREVENT_COORDINATE_OFFSET_SEARCH;
-                        xReference = xReference <= width - PREVENT_COORDINATE_OFFSET_SEARCH ?
-                                xReference : width - PREVENT_COORDINATE_OFFSET_SEARCH;
-                        getStartPointByY(pencilBitmap, yStart, yEnd, xReference, point);
+                        getStartPointByYToTop(pencilBitmap, yStart, yEnd, xReference, point);
                         yStart--;
                         if (point.x == -1 && point.y == -1)// 如果开始为null则停止循环
                             break;
                         boolean have = haveData(targetBitmap, point);
                         if (!have && !isAppearEnd) {// 找到尾节点
                             // 在该线段中存在尾节点
+                            current.add(new PointF(point));
                             current.add(new PointF(point));
                             current = new ArrayList<>();
                             pencils.add(current);
@@ -307,103 +300,108 @@ public class EraseUtil {
         return !(point.x >= width || point.x < 0 || point.y >= height || point.y < 0);
     }
 
-    private static void getStartPointByX(Bitmap bitmap, int start, int end, int yReference, Point
-            point) {
-        if (start < end) {
-            while (start <= end) {
-                int y = yReference;
-                if (bitmap.getPixel(start, y) != 0) {
-                    point.set(start, y);
-                    return;
-                }
-                for (int i = 1; i < PREVENT_COORDINATE_OFFSET_SEARCH; i++) {
-                    y = yReference - i;
-                    if (bitmap.getPixel(start, y) != 0) {
-                        point.set(start, y);
-                        return;
-                    }
-                    y = yReference + i;
-                    if (bitmap.getPixel(start, y) != 0) {
-                        point.set(start, y);
-                        return;
-                    }
-                }
-                start++;
+    // 线段所属直线偏向于x轴并且从左到右
+    private static void getStartPointByXToRight(Bitmap bitmap, int start, int end, int
+            yReference, Point point) {
+        while (start <= end) {
+            if (findPointByX(bitmap, start, yReference, PREVENT_COORDINATE_OFFSET_SEARCH, point)) {
+                return;
             }
-        } else {
-            while (start >= end) {
-                int y = yReference;
-                if (bitmap.getPixel(start, y) != 0) {
-                    point.set(start, y);
-                    return;
-                }
-                for (int i = 1; i < PREVENT_COORDINATE_OFFSET_SEARCH; i++) {
-                    y = yReference - i;
-                    if (bitmap.getPixel(start, y) != 0) {
-                        point.set(start, y);
-                        return;
-                    }
-                    y = yReference + i;
-                    if (bitmap.getPixel(start, y) != 0) {
-                        point.set(start, y);
-                        return;
-                    }
-                }
-                start--;
-            }
+            start++;
         }
         point.set(-1, -1);
     }
 
-    /**
-     * note 调用次方法的时候两个点的x值是一样的
-     */
-    private static void getStartPointByY(Bitmap bitmap, int start, int end, int xReference, Point
-            point) {
-        if (start < end) {
-            while (start <= end) {
-                int x = xReference;
-                if (bitmap.getPixel(x, start) != 0) {
-                    point.set(x, start);
-                    return;
-                }
-                for (int i = 1; i < PREVENT_COORDINATE_OFFSET_SEARCH; i++) {
-                    x = xReference - i;
-                    if (bitmap.getPixel(x, start) != 0) {
-                        point.set(x, start);
-                        return;
-                    }
-                    x = xReference + i;
-                    if (bitmap.getPixel(x, start) != 0) {
-                        point.set(x, start);
-                        return;
-                    }
-                }
-                start++;
+    private static void getStartPointByXToLeft(Bitmap bitmap, int start, int end, int yReference,
+                                               Point point) {
+        while (start >= end) {
+            if (findPointByX(bitmap, start, yReference, PREVENT_COORDINATE_OFFSET_SEARCH, point)) {
+                return;
             }
-        } else {
-            while (start >= end) {
-                int x = xReference;
-                if (bitmap.getPixel(x, start) != 0) {
-                    point.set(x, start);
-                    return;
-                }
-                for (int i = 1; i < PREVENT_COORDINATE_OFFSET_SEARCH; i++) {
-                    x = xReference - i;
-                    if (bitmap.getPixel(x, start) != 0) {
-                        point.set(x, start);
-                        return;
-                    }
-                    x = xReference + i;
-                    if (bitmap.getPixel(x, start) != 0) {
-                        point.set(x, start);
-                        return;
-                    }
-                }
-                start--;
-            }
+            start--;
         }
         point.set(-1, -1);
+    }
+
+    private static boolean findPointByX(Bitmap bitmap, int x, int yReference, int offset, Point
+            point) {
+        int max = bitmap.getHeight() - 1;
+        int min = 0;
+        int y = checkRules(max, min, yReference);
+        if (bitmap.getPixel(x, y) != 0) {
+            point.set(x, y);
+            return true;
+        }
+        for (int i = 1; i < offset; i++) {
+            y = checkRules(max, min, yReference - i);
+            if (bitmap.getPixel(x, y) != 0) {
+                point.set(x, y);
+                return true;
+            }
+            y = checkRules(max, min, yReference + i);
+            if (bitmap.getPixel(x, y) != 0) {
+                point.set(x, y);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void getStartPointByYToBottom(Bitmap bitmap, int start, int end,
+                                                 int xReference, Point point) {
+        while (start <= end) {
+            if (findPointByY(bitmap, start, xReference, PREVENT_COORDINATE_OFFSET_SEARCH, point)) {
+                return;
+            }
+            start++;
+        }
+        point.set(-1, -1);
+    }
+
+    private static void getStartPointByYToTop(Bitmap bitmap, int start, int end, int xReference,
+                                              Point point) {
+        while (start >= end) {
+            if (findPointByY(bitmap, start, xReference, PREVENT_COORDINATE_OFFSET_SEARCH, point)) {
+                return;
+            }
+            start--;
+        }
+        point.set(-1, -1);
+    }
+
+    private static boolean findPointByY(Bitmap bitmap, int y, int xReference, int offset, Point
+            point) {
+        int max = bitmap.getWidth() - 1;
+        int min = 0;
+        int x = checkRules(max, min, xReference);
+        if (bitmap.getPixel(x, y) != 0) {
+            point.set(x, y);
+            return true;
+        }
+
+        for (int i = 1; i < offset; i++) {
+            x = checkRules(max, min, xReference - i);
+            if (bitmap.getPixel(x, y) != 0) {
+                point.set(x, y);
+                return true;
+            }
+            x = checkRules(max, min, xReference + i);
+            if (bitmap.getPixel(x, y) != 0) {
+                point.set(x, y);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int checkRules(int max, int min, int value) {
+        if (value > max) {
+            value = max;
+        }
+        if (value < min) {
+            value = min;
+        }
+        return value;
     }
 
     private static boolean haveData(Bitmap bitmap, Point point) {
